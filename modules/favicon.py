@@ -38,4 +38,5 @@ def solve_favicon(domain, subs_file=None):
 if __name__ == "__main__":
     import urllib3
     urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
-    solve_favicon(sys.argv[1], sys.argv[2] if len(sys.argv) > 2 else None)
+    if len(sys.argv) > 1:
+        solve_favicon(sys.argv[1], sys.argv[2] if len(sys.argv) > 2 else None)

@@ -8,8 +8,9 @@ def get_cert_serial(hostname):
     except: return None
 
 if __name__ == "__main__":
-    serial = get_cert_serial(sys.argv[1])
-    if serial:
-        print(f"\n\033[94m[+] SSL SERIAL: {serial}\033[0m")
-        print(f"    -> Censys: https://search.censys.io/search?resource=hosts&q=services.tls.certificates.leaf_data.serial_number%3A{serial}")
-        print(f"    -> Shodan: https://www.shodan.io/search?query=ssl.cert.serial:{serial}")
+    if len(sys.argv) > 1:
+        serial = get_cert_serial(sys.argv[1])
+        if serial:
+            print(f"\n\033[94m[+] SSL SERIAL: {serial}\033[0m")
+            print(f"    -> Censys: https://search.censys.io/search?resource=hosts&q=services.tls.certificates.leaf_data.serial_number%3A{serial}")
+            print(f"    -> Shodan: https://www.shodan.io/search?query=ssl.cert.serial:{serial}")
