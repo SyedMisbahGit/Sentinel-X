@@ -23,7 +23,7 @@
 
 ```bash
 # 1. Clone the repository
-git clone [https://github.com/SyedMisbahGit/Sentinel-X.git](https://github.com/SyedMisbahGit/Sentinel-X.git)
+git clone https://github.com/SyedMisbahGit/Sentinel-X.git
 cd Sentinel-X
 
 # 2. Install Dependencies (Go & Python tools)
