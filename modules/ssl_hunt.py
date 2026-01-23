@@ -6,7 +6,6 @@ def get_cert_serial(hostname):
             with ssl.create_default_context().wrap_socket(sock, server_hostname=hostname) as ssock:
                 return ssock.getpeercert().get('serialNumber')
     except: return None
-
 if __name__ == "__main__":
     if len(sys.argv) > 1:
         serial = get_cert_serial(sys.argv[1])
