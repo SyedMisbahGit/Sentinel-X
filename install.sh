@@ -20,6 +20,7 @@ go install -v github.com/hahwul/dalfox/v2@latest
 go install -v github.com/tomnomnom/qsreplace@latest
 go install -v github.com/projectdiscovery/katana/cmd/katana@latest
 go install -v github.com/sensepost/gowitness@latest
+go install -v github.com/projectdiscovery/naabu/v2/cmd/naabu@latest
 
 echo "[*] Installing Python Libs..."
 pip3 install mmh3 requests --break-system-packages

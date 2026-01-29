@@ -1,0 +1,16 @@
+'/api/v2/marketing_event_tracking'
+'/api/v2/client_configs'
+'/api/v2/phone_one_time_passwords'
+'/api/v2/get-data-layer-variables'
+'/api/v2/email_one_time_passwords'
+"/api/v2/login_for_web"
+"/api/v2/signup_for_web"
+"/api/v2/forgot_passwords"
+"/api/v2/forgot_passwords/reset_password"
+"/api/v2/auth/validate_password"
+'/api/v2/auth/options'
+"/api/v2/get_travel_guides_by_user"
+'/api/v3'
+'/api/v2/client_configs'
+'/api/v2/marketing_event_tracking'
+'/api/v2'

@@ -13,10 +13,13 @@ if [[ ! -s "$RDIR/urls_live.txt" ]]; then
 fi
 
 log "${GREEN}[+] Tool: Katana (JS Spidering)...${NC}"
-katana -list "$RDIR/urls_live.txt" -jc -kf -d 3 -em js,json -silent -o "$RDIR/secrets/js_files.txt"
-log "    -> Extracted JS Files: $(wc -l < "$RDIR/secrets/js_files.txt")"
+# FIX: Changed "-kf" to "-kf all" so it doesn't break the command
+katana -list "$RDIR/urls_live.txt" -jc -kf all -d 3 -em js,json -silent -o "$RDIR/secrets/js_files.txt"
 
-if [[ -s "$RDIR/secrets/js_files.txt" ]]; then
+COUNT_JS=$(wc -l < "$RDIR/secrets/js_files.txt" 2>/dev/null || echo 0)
+log "    -> Extracted JS Files: $COUNT_JS"
+
+if [[ "$COUNT_JS" -gt 0 ]]; then
     log "${GREEN}[+] Tool: Nuclei (Token Scanning)...${NC}"
     nuclei -l "$RDIR/secrets/js_files.txt" -t http/exposures/ -t http/misconfiguration/ -id exposed-tokens,api-key,google-api-key,aws-access-key -silent -o "$RDIR/secrets/keys_found.txt"
     if [[ -s "$RDIR/secrets/keys_found.txt" ]]; then

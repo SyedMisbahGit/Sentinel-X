@@ -1,6 +1,6 @@
 #!/bin/bash
-# SENTINEL-X v23.0: MASTER CONTROLLER
-# Orchestrates the full modular recon kill chain.
+# SENTINEL-X v24.0: MASTER CONTROLLER
+# Orchestrates the full modular recon kill chain with Port Scanning.
 
 TARGET=$1
 if [[ -z "$TARGET" ]]; then echo "Usage: ./sentinel_x.sh <domain>"; exit 1; fi
@@ -11,7 +11,7 @@ GREEN='\033[1;32m'
 NC='\033[0m'
 
 echo -e "${BLUE}=========================================${NC}"
-echo -e "${BLUE}   SENTINEL-X v23.0: TOTAL RECON       ${NC}"
+echo -e "${BLUE}   SENTINEL-X v24.0: HYDRA EDITION     ${NC}"
 echo -e "${BLUE}=========================================${NC}"
 echo -e "${BLUE}[*] TARGET LOCK: $TARGET${NC}"
 
@@ -22,10 +22,13 @@ echo -e "${BLUE}[*] TARGET LOCK: $TARGET${NC}"
 # 2. Active Mapping & WAF Evasion
 ./sentinel_active.sh "$TARGET"
 
-# 3. Secret Mining (JS Analysis)
+# 3. Port Scanning (New!)
+./sentinel_ports.sh "$TARGET"
+
+# 4. Secret Mining (JS Analysis)
 ./sentinel_secrets.sh "$TARGET"
 
-# 4. Weaponization
+# 5. Weaponization
 ./sentinel_attack.sh "$TARGET"
 
 echo -e "\n${GREEN}[+] MISSION COMPLETE.${NC}"
