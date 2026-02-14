@@ -1,0 +1,7 @@
+typer
+rich
+pyyaml
+requests
+dnspython
+checkdmarc
+psutil

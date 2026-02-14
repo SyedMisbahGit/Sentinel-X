@@ -1,0 +1,17 @@
+# Python
+__pycache__/
+*.py[cod]
+venv/
+.env
+
+# Scan Data
+data/sessions/*
+data/wordlists/*
+data/temp_*
+output/*
+!output/.gitkeep
+!data/.gitkeep
+
+# Logs and Configs
+*.log
+.DS_Store
