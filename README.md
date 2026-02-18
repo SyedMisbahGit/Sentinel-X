@@ -1,68 +1,50 @@
-# MUFTI ⚖️
-**The Supreme Security Auditor.**
+# ARBITER // v2.0
+**SYSTEM INTEGRITY EVALUATOR**
 
-MUFTI is a next-generation Red Teaming & Reconnaissance framework designed for **Audit, Verdict, and Seizure**. It automates the entire attack lifecycle from Subdomain Enumeration to Subdomain Takeover and Report Generation.
+> *The Verdict is Final.*
 
-## ⚡ Features
+**ARBITER** is an offensive security framework designed for high-speed Red Teaming, automated reconnaissance, and business logic validation. It does not just scan; it issues a **Protocol Determination** on the target's security posture.
 
-* **Ghost Protocol:** Stealthy port scanning using `Naabu` (Hybrid Mode).
+## ⚡ Core Capabilities
+
+* **Protocol Determination:** Issues a graded Security Diagnostic (CRITICAL / COMPROMISED / OPTIMAL).
+* **SpoofCheck:** Validates CEO Fraud vectors (DMARC/SPF) and generates `swaks` PoC commands.
 * **The Seizure:** Automated Subdomain Takeover detection via `Nuclei`.
 * **Deep Cover:** JavaScript Endpoint Extraction & Secret Mining (`Cortex`).
-* **Verdict Engine:** Issues a Security Grade (A-F) based on findings.
 * **Shadow IT:** Subdomain Permutation Engine to find hidden dev/stage environments.
-* **Chaos Module:** Content Discovery using `FFUF` with auto-calibration.
-* **Email Forensics:** Detects Spoofing (DMARC/SPF) and insecure mail ports.
+* **Trace Deletion:** Interactive prompt to purge all mission data upon completion.
 
-## 🚀 Installation
+---
 
+## 💀 Kali Execution Protocols
+
+**1. System Diagnostic (Standard Mode)**
 ```bash
-# Clone the repository
-git clone [https://github.com/YOUR_USERNAME/MUFTI.git](https://github.com/YOUR_USERNAME/MUFTI.git)
-cd MUFTI
+python arbiter.py scan tesla.com --mode standard
 
-# Run Setup
-chmod +x setup.sh
-./setup.sh
-
-# Activate Environment
-source venv/bin/activate
-⚔️ Usage
-
-MUFTI operates in three modes: Stealth (Quiet), Standard (Balanced), and Loud (Aggressive).
+2. Ghost Protocol (Stealth Mode)
 Bash
 
-# Basic Scan
-python mufti.py scan tesla.com
+python arbiter.py scan tesla.com --mode stealth
 
-# Full Audit (Standard Mode)
-python mufti.py scan tesla.com --mode standard
+3. Resume Interrupted Session
+Bash
 
-# Resume a previous session
-python mufti.py scan tesla.com --resume
+python arbiter.py scan tesla.com --resume
 
-📂 Output
+4. System Integrity Check
+Bash
 
-MUFTI generates a Verdict Report in output/TARGET/verdict.html.
-This report includes:
+python verify_config.py
 
-    Security Grade (A/B/C/F)
+📂 Output Intelligence
 
-    Critical Vulnerabilities
+Arbiter generates a Heads-Up Display (HUD) report:
 
-    Hidden API Endpoints
+    Path: output/TARGET/arbiter_log.html
 
-    Email Spoofing Status
+    Data: Live Nodes, Hidden API Endpoints, Email Spoofing Status, and Critical Anomalies.
 
-📜 Modules
-Module	Function	Tools Used
-Recon	Passive Subdomain Enumeration	Subfinder, Wayback
-Permutations	DNS Mutation Analysis	Pure Python
-Ports	Hybrid Port Scanning	Naabu
-Probing	Live Host Detection & WAF Evasion	HTTPX
-Takeover	Subdomain Seizure Check	Nuclei
-Chaos	Content Discovery & Fuzzing	FFUF
-Cortex	JS Secrets & Endpoint Mining	Regex
-Email	SPF/DMARC/SMTP Analysis	Checkdmarc
 ⚠️ Disclaimer
 
-This tool is for educational and authorized testing purposes only.
+Authorized Testing Only. The user assumes all liability for the use of this weapon.
