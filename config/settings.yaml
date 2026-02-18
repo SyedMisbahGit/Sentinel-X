@@ -1,5 +1,5 @@
 global:
-  name: "MUFTI"
+  name: "ARBITER"
   version: "1.4.0"
   user_agent: "Sentinel-NG/1.4"
   timeout: 5

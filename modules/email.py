@@ -3,120 +3,88 @@ import dns.resolver
 import logging
 import socket
 from rich.console import Console
+from rich.panel import Panel
 
 console = Console()
 log = logging.getLogger("rich")
 
 def run_email(session, config):
     """
-    Phase 2.7: Email Security & DNS Recon.
-    Checks SPF, DMARC, DNSSEC, MX Records, and Spoofability.
+    Phase 2.7: SpoofCheck (Email Security).
     """
-    console.print("[bold blue]━━ PHASE 2.7: EMAIL SECURITY RECON ━━[/bold blue]")
+    console.print("[bold blue]━━ PHASE 2.7: SPOOFCHECK (CEO FRAUD) ━━[/bold blue]")
 
     domain = session.domain
     results = {
-        "spf": None,
-        "dmarc": None,
-        "dnssec": False,
-        "mx_records": [],
+        "spf": "Missing",
+        "dmarc": "Missing",
         "spoofable": False,
-        "ports": []
+        "mx_records": []
     }
 
-    # 1. Check DMARC & SPF (Using checkdmarc library)
-    log.info(f"Analyzing Email Security Policies for {domain}...")
+    # 1. Get MX Records
+    mx_ip = "127.0.0.1"
     try:
-        # checkdmarc performs a full analysis
-        dmarc_info = checkdmarc.check_domains([domain])
+        mx_answers = dns.resolver.resolve(domain, 'MX')
+        mx_records = sorted([(r.preference, str(r.exchange).rstrip('.')) for r in mx_answers])
+        results["mx_records"] = [r[1] for r in mx_records]
+        primary_mx = mx_records[0][1]
+        
+        # Resolve MX to IP for SWAKS
+        mx_ip = socket.gethostbyname(primary_mx)
+        console.print(f"[cyan]  + Primary MX: {primary_mx} ({mx_ip})[/cyan]")
+        
+    except Exception:
+        log.warning("No MX records found. Email might not be active.")
+        primary_mx = f"mx.{domain}"
+
+    # 2. Analyze DMARC
+    try:
+        dmarc_info = checkdmarc.check_domains([domain], timeout=10)
         data = dmarc_info.get(domain, {})
         
-        # Store SPF
-        results["spf"] = data.get("spf", {}).get("record", "Missing")
-        spf_valid = data.get("spf", {}).get("valid", False)
-        
-        # Store DMARC
-        results["dmarc"] = data.get("dmarc", {}).get("record", "Missing")
-        dmarc_valid = data.get("dmarc", {}).get("valid", False)
-        
-        # 2. Spoofing Logic
-        # If DMARC is missing or policy is 'none', spoofing is possible
+        spf_rec = data.get("spf", {}).get("record", "Missing")
+        dmarc_rec = data.get("dmarc", {}).get("record", "Missing")
         p_policy = data.get("dmarc", {}).get("tags", {}).get("p", {}).get("value", "none")
         
-        if not dmarc_valid or p_policy == "none":
+        results["spf"] = spf_rec
+        results["dmarc"] = dmarc_rec
+
+        if "v=DMARC1" not in str(dmarc_rec) or p_policy == "none":
             results["spoofable"] = True
-            console.print(f"[bold red]>>> CRITICAL: Domain {domain} is SPOOFABLE! (DMARC p={p_policy})[/bold red]")
-            # Add to vulnerabilities
+            console.print(Panel(
+                f"[bold red]VULNERABLE: CEO Fraud Possible![/bold red]\n"
+                f"Policy: p={p_policy}\n"
+                f"Impact: You can send emails as 'admin@{domain}' to anyone.",
+                title="❌ SPOOFCHECK FAILED", border_style="red"
+            ))
+            
+            poc_cmd = f"swaks --to user@example.com --from admin@{domain} --server {primary_mx} --header 'Subject: Urgent Transfer'"
+            console.print(f"\n[yellow]PoC Command (Authorized Testing Only):[/yellow]")
+            console.print(f"[white on black]{poc_cmd}[/white on black]\n")
+            
             session.vulnerabilities.append({
-                "name": "Email Spoofing Possible",
-                "severity": "HIGH",
+                "name": "Email Spoofing (CEO Fraud)",
+                "severity": "CRITICAL",
                 "url": domain,
-                "info": f"DMARC policy is '{p_policy}'. Attackers can send emails as {domain}."
+                "info": f"DMARC policy is '{p_policy}'. Spoofing is possible."
             })
-        else:
-            console.print(f"[green]>>> Email Spoofing Mitigated (DMARC p={p_policy})[/green]")
+
+        elif p_policy == "quarantine":
+            console.print(Panel(
+                f"[bold orange1]MEDIUM: Spoofing Possible (Spam Folder)[/bold orange1]\n"
+                f"Policy: p=quarantine",
+                title="⚠️ SPOOFCHECK WARNING", border_style="orange1"
+            ))
+
+        elif p_policy == "reject":
+            console.print(Panel(
+                f"[bold green]SECURE: Spoofing Blocked[/bold green]\n"
+                f"Policy: p=reject",
+                title="✅ SPOOFCHECK PASSED", border_style="green"
+            ))
 
     except Exception as e:
         log.error(f"DMARC Check failed: {e}")
 
-    # 3. MX Records & Provider Fingerprinting
-    try:
-        mx_answers = dns.resolver.resolve(domain, 'MX')
-        for rdata in mx_answers:
-            mx_record = str(rdata.exchange).rstrip('.')
-            results["mx_records"].append(mx_record)
-            
-            # Simple Fingerprinting
-            if "google" in mx_record or "googlemail" in mx_record:
-                console.print(f"[cyan]  + Provider: Google Workspace (OAuth 2.0 Likely Enforced)[/cyan]")
-            elif "outlook" in mx_record or "protection.outlook" in mx_record:
-                console.print(f"[cyan]  + Provider: Microsoft 365 (OAuth 2.0 Likely Enforced)[/cyan]")
-            elif "pphosted" in mx_record:
-                console.print(f"[cyan]  + Security: Proofpoint Detected[/cyan]")
-            elif "mimecast" in mx_record:
-                console.print(f"[cyan]  + Security: Mimecast Detected[/cyan]")
-
-    except Exception:
-        log.warning("No MX records found.")
-
-    # 4. DNSSEC Check
-    try:
-        # Simple check: query DNSKEY
-        dns.resolver.resolve(domain, 'DNSKEY')
-        results["dnssec"] = True
-        console.print("[green]  + DNSSEC is Enabled[/green]")
-    except:
-        console.print("[yellow]  - DNSSEC is Disabled[/yellow]")
-
-    # 5. Mail Port Checks (SMTP/IMAP/POP3)
-    # We only check the primary MX record to avoid noise
-    if results["mx_records"]:
-        primary_mx = results["mx_records"][0]
-        log.info(f"Checking mail ports on primary MX: {primary_mx}...")
-        
-        mail_ports = [25, 465, 587, 110, 995, 143, 993]
-        open_ports = []
-        
-        for port in mail_ports:
-            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            sock.settimeout(1) # Fast timeout
-            result = sock.connect_ex((primary_mx, port))
-            if result == 0:
-                open_ports.append(port)
-            sock.close()
-        
-        if open_ports:
-            log.info(f"Open Mail Ports: {open_ports}")
-            results["ports"] = open_ports
-            
-            # Warn about plaintext ports
-            if 110 in open_ports or 143 in open_ports or 25 in open_ports:
-                 session.vulnerabilities.append({
-                    "name": "Insecure Mail Ports Exposed",
-                    "severity": "LOW",
-                    "url": primary_mx,
-                    "info": f"Plaintext ports {open_ports} exposed. Ensure STARTTLS is enforced."
-                })
-
-    # Save results to session for reporting
     session.email_security = results
