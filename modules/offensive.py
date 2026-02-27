@@ -1,77 +1,57 @@
-import subprocess
+import requests
 import logging
-import os
 from rich.console import Console
+from rich.panel import Panel
+import urllib3
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 console = Console()
 log = logging.getLogger("rich")
 
 def run_offensive(session, config):
     """
-    The Attack Engine.
-    Executes Nuclei based on the categories found in Phase 3.
+    Phase 4: Offensive Strikes (CORS Cartographer)
+    Hunts for Cross-Origin Resource Sharing misconfigurations.
     """
-    console.print("[bold blue]━━ PHASE 4: OFFENSIVE STRIKES ━━[/bold blue]")
+    console.print("[bold blue]━━ PHASE 4: OFFENSIVE STRIKES (CORS CARTOGRAPHER) ━━[/bold blue]")
     
-    nuclei_bin = config['tools']['nuclei']['path']
-    rate_limit = config['modes'][session.mode]['nuclei_rate']
-    
-    # 1. SURGICAL STRIKES
-    # Check if we have categorized targets
-    tech_map = getattr(session, 'technologies', {})
-    
-    if tech_map.get('cms'):
-        run_nuclei(nuclei_bin, tech_map['cms'], "wordpress,drupal,joomla,cve", rate_limit, "CMS_STRIKE")
-        
-    if tech_map.get('enterprise'):
-        run_nuclei(nuclei_bin, tech_map['enterprise'], "jira,jenkins,grafana,cve", rate_limit, "ENTERPRISE_STRIKE")
-        
-    if tech_map.get('panels'):
-        run_nuclei(nuclei_bin, tech_map['panels'], "login,panel,auth-bypass", rate_limit, "PANEL_STRIKE")
-
-    # 2. SMOKE TEST (General scan on everything else)
-    # We create a list of all live URLs
-    all_live = [h['url'] for h in session.live_hosts]
-    
-    # Only scan top 50 to save time/bandwidth in stealth mode
-    if session.mode == 'stealth':
-        all_live = all_live[:50]
-        
-    run_nuclei(nuclei_bin, all_live, "misconfiguration,exposure,takeover", rate_limit, "GENERAL_SMOKE_TEST")
-
-def run_nuclei(binary, targets, tags, rate, name):
-    if not targets:
+    if not session.live_hosts:
+        log.warning("No live hosts to strike. Skipping.")
         return
 
-    log.info(f"Launching {name} against {len(targets)} targets (Tags: {tags})...")
+    evil_origin = "https://evil-arbiter.com"
+    headers = {"Origin": evil_origin}
     
-    # Create temp target file
-    temp_file = f"data/temp_{name}.txt"
-    with open(temp_file, "w") as f:
-        f.write("\n".join(targets))
-        
-    cmd = [
-        binary,
-        "-l", temp_file,
-        "-tags", tags,
-        "-rl", str(rate),
-        "-c", "10",
-        "-timeout", "5",
-        "-silent",
-        "-json"
-    ]
+    console.print(f"INFO     Launching CORS_STRIKE against {len(session.live_hosts)} targets...")
     
-    try:
-        # We process output line by line to show findings in real-time
-        process = subprocess.Popen(cmd, stdout=subprocess.PIPE, text=True)
+    findings = 0
+    for host in session.live_hosts:
+        target = host.get('url')
+        if not target: continue
         
-        for line in process.stdout:
-            # Here you would parse the JSON and add to session.vulnerabilities
-            # For now, we just print Criticals
-            if "critical" in line or "high" in line:
-                console.print(f"[bold red]VULNERABILITY FOUND: {line.strip()}[/bold red]")
-                
-        os.remove(temp_file)
-        
-    except Exception as e:
-        log.error(f"Nuclei failed: {e}")
+        try:
+            r = requests.get(target, headers=headers, timeout=5, verify=False)
+            acao = r.headers.get("Access-Control-Allow-Origin", "")
+            acac = r.headers.get("Access-Control-Allow-Credentials", "false").lower()
+            
+            # The Logic: Does it reflect our evil origin AND allow credentials?
+            if (acao == evil_origin or acao == "*") and acac == "true":
+                console.print(Panel(
+                    f"[bold red]CRITICAL: CORS MISCONFIGURATION DETECTED[/bold red]\n"
+                    f"Target: {target}\n"
+                    f"Origin Allowed: {acao}\n"
+                    f"Credentials Allowed: {acac}",
+                    title="❌ API HIJACK RISK", border_style="red"
+                ))
+                session.vulnerabilities.append({
+                    "name": "CORS Misconfiguration (API Hijack)",
+                    "severity": "HIGH",
+                    "url": target,
+                    "info": f"Server blindly trusts Origin: {acao} with Credentials: {acac}"
+                })
+                findings += 1
+        except Exception:
+            pass
+            
+    if findings == 0:
+        console.print("[green]  + No CORS misconfigurations detected (Secure).[/green]")

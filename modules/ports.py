@@ -1,79 +1,87 @@
+import os
 import subprocess
 import logging
-import os
+import dns.resolver
+from concurrent.futures import ThreadPoolExecutor
 from rich.console import Console
+from rich.panel import Panel
 
 console = Console()
 log = logging.getLogger("rich")
 
-def run_ports(session, config):
-    """
-    Phase 1.5: Port Scanning (Hybrid: Passive + Active).
-    """
-    console.print("[bold blue]━━ PHASE 1.5: PORT SCANNING ━━[/bold blue]")
-    
-    naabu_path = config['tools']['naabu']['path']
-    port_mode = config['modes'].get(session.mode, {}).get('ports', 'top-100')
-    
-    # Define Port Strategy
-    port_args = []
-    if port_mode == "top-100":
-        port_args = ["-top-ports", "100"]
-    elif port_mode == "top-1000":
-        port_args = ["-top-ports", "1000"]
-    elif port_mode == "full":
-        port_args = ["-p", "-"] 
-    else:
-        port_args = ["-top-ports", "100"]
+CDN_SIGNATURES = ["cloudflare", "cloudfront", "fastly", "akamai", "incapsula", "sucuri", "imperva"]
 
+def is_cdn(domain):
+    """Lightweight CNAME resolution to detect CDN presence."""
+    try:
+        resolver = dns.resolver.Resolver()
+        resolver.timeout = 2
+        resolver.lifetime = 2
+        answers = resolver.resolve(domain, 'CNAME')
+        for rdata in answers:
+            target = str(rdata.target).lower()
+            if any(cdn in target for cdn in CDN_SIGNATURES):
+                return domain, True
+    except Exception:
+        pass
+    return domain, False
+
+def run_ports(session, config):
+    console.print("[bold blue]━━ PHASE 1.5: PORT SCANNING (CDN SHIELD ACTIVE) ━━[/bold blue]")
+    
     if not session.subdomains:
-        log.warning("No subdomains to scan.")
+        log.warning("No subdomains found to scan.")
         return
 
-    # Create input file
-    input_file = "data/temp_subs_ports.txt"
-    os.makedirs("data", exist_ok=True)
-    with open(input_file, "w") as f:
-        f.write("\n".join(session.subdomains))
+    direct_targets = []
+    cdn_targets = []
+    
+    console.print(f"[cyan]  + Analyzing {len(session.subdomains)} hosts for CDN routing (50 Threads)...[/cyan]")
+    
+    # THE UPGRADE: Multi-threaded CDN classification
+    with ThreadPoolExecutor(max_workers=50) as executor:
+        results = executor.map(is_cdn, session.subdomains)
+        for domain, is_fronted in results:
+            if is_fronted:
+                cdn_targets.append(domain)
+            else:
+                direct_targets.append(domain)
+            
+    if cdn_targets:
+        console.print(f"[yellow]  ! Bypassing deep scan for {len(cdn_targets)} CDN-fronted hosts.[/yellow]")
 
-    log.info(f"Scanning ports on {len(session.subdomains)} hosts...")
+    if not direct_targets:
+        log.info("All targets are CDN-fronted. Skipping deep port scan.")
+        return
 
-    # OPTIMIZED COMMAND
+    target_file = "data/temp_port_targets.txt"
+    with open(target_file, "w") as f:
+        for t in direct_targets:
+            f.write(t + "\n")
+
+    log.info(f"Executing Naabu against {len(direct_targets)} direct-origin hosts...")
+    out_file = "data/temp_naabu.txt"
+    
     cmd = [
-        naabu_path,
-        "-list", input_file,
+        "naabu",
+        "-l", target_file,
+        "-top-ports", "100", 
+        "-c", "50",          
         "-silent",
-        "-passive",       # <--- CRITICAL: Uses InternetDB/Shodan (Instant)
-        "-exclude-cdn",   # <--- CRITICAL: Skips Cloudflare/Akamai IPs (Fast)
-    ] + port_args
-
-    # Optimized Rates
-    if session.mode == "stealth":
-        cmd.extend(["-rate", "300"]) # Bumped from 100 to 300
-    elif session.mode == "loud":
-        cmd.extend(["-rate", "2000"])
-    else:
-        cmd.extend(["-rate", "1000"])
+        "-o", out_file
+    ]
 
     try:
-        # 5 Minute Timeout for Port Scan to prevent "Forever" hangs
-        process = subprocess.run(cmd, capture_output=True, text=True, timeout=600)
-        found_targets = process.stdout.splitlines()
-        
-        # Deduplicate
-        unique_targets = list(set(session.subdomains + found_targets))
-        
-        # Calculate new finds
-        new_finds = len(unique_targets) - len(session.subdomains)
-        session.subdomains = unique_targets
-        
-        log.info(f"Port Scan Complete. Found {new_finds} new port mappings.")
-        log.info(f"Total Targets for Probing: {len(session.subdomains)}")
-        
-    except subprocess.TimeoutExpired:
-        log.warning("Port scan timed out (Limit: 10m). Proceeding with what we found...")
+        subprocess.run(cmd, capture_output=True, text=True)
+        if os.path.exists(out_file):
+            with open(out_file, "r") as f:
+                lines = f.readlines()
+                console.print(f"[green]  + Port Scan Complete. Found {len(lines)} open ports.[/green]")
+            os.remove(out_file)
+        else:
+            console.print("[dim]  + No new open ports discovered.[/dim]")
     except Exception as e:
-        log.error(f"Naabu failed: {e}")
+        log.error(f"Port scan failed: {e}")
         
-    if os.path.exists(input_file):
-        os.remove(input_file)
+    if os.path.exists(target_file):
+        os.remove(target_file)

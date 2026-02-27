@@ -9,19 +9,26 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.align import Align
 from rich.prompt import Confirm
-from core.target import Target
+
+# --- THE UPGRADE: SQLite Memory Core ---
+from core.state import TargetSession
 
 # Import Modules
 from modules.recon import run_recon
+from modules.horizontal import run_horizontal
+from modules.dns_forensics import run_dns_forensics
 from modules.permutations import run_permutations
 from modules.ports import run_ports
 from modules.probing import run_probing
+from modules.spider import run_spider
 from modules.cloud import run_cloud
 from modules.email import run_email
+from modules.github_recon import run_github
 from modules.takeover import run_takeover
 from modules.cortex import run_cortex
 from modules.offensive import run_offensive
 from modules.mining import run_mining
+from modules.oast import run_oast
 from modules.chaos import run_chaos
 from modules.report import run_report
 
@@ -41,7 +48,7 @@ app = typer.Typer(help="ARBITER: System Integrity Evaluator")
 def load_config():
     try:
         with open("config/settings.yaml", "r") as f: return yaml.safe_load(f)
-    except: sys.exit(1)
+    except: return {}
 
 CONFIG = load_config()
 
@@ -53,7 +60,7 @@ BANNER = """
   ░██▄▄▄▄██ ▒██▀▀█▄  ▒██░█▀  ░██░░ ▓██▓ ░ ▒▓█  ▄ ▒██▀▀█▄  
    ▓█   ▓██▒░██▓ ▒██▒░▓█  ▀█▓░██░  ▒██▒ ░ ░▒████▒░██▓ ▒██▒
    ▒▒   ▓▒█░░ ▒▓ ░▒▓░░▒▓███▀▒░▓    ▒ ░░   ░░ ▒░ ░░ ▒▓ ░▒▓░
-    ▒   ▒▒ ░  ░▒ ░ ▒░▒░▒   ░  ▒ ░    ░     ░ ░  ░  ░▒ ░ ▒░
+    ▒   ▒▒ ░  ░▒ ░ ▒░▒░▒   ░  ▒ ░    ░      ░ ░  ░▒ ░ ▒░
     ░   ▒     ░░   ░  ░    ░  ▒ ░  ░         ░     ░░   ░ 
         ░  ░   ░      ░       ░              ░  ░   ░     
                        ░                                  
@@ -68,47 +75,59 @@ def scan(target: str = typer.Argument(...), mode: str = typer.Option("stealth", 
     console.print(Align.center(BANNER))
     console.print(Panel.fit(f"[bold cyan]TARGET ACQUIRED:[/bold cyan] {target}\n[bold cyan]PROTOCOL:[/bold cyan] {mode.upper()}", border_style="cyan"))
 
-    session = Target.load(target) if resume and Target.load(target) else Target(domain=target, mode=mode)
-    session.save()
+    # Initialize SQLite Core Engine
+    # (SQLite naturally handles resuming without duplicating data thanks to 'UNIQUE' constraints)
+    session = TargetSession(target)
+    
+    # In-memory phase tracker for the current run
+    completed_phases = []
 
     try:
         phases = [
-            ("recon", run_recon), ("ports", run_ports), ("permutations", run_permutations),
-            ("probing", run_probing), ("takeover", run_takeover), ("cloud", run_cloud),
-            ("email", run_email), ("cortex", run_cortex), ("offensive", run_offensive),
-            ("mining", run_mining), ("chaos", run_chaos)
+            ("recon", run_recon), 
+            ("horizontal", run_horizontal), 
+            ("dns_forensics", run_dns_forensics), 
+            ("ports", run_ports), 
+            ("permutations", run_permutations),
+            ("probing", run_probing), 
+            ("spider", run_spider), 
+            ("takeover", run_takeover), 
+            ("cloud", run_cloud),
+            ("email", run_email), 
+            ("github", run_github), 
+            ("cortex", run_cortex), 
+            ("offensive", run_offensive),
+            ("mining", run_mining), 
+            ("oast", run_oast), 
+            ("chaos", run_chaos)
         ]
 
         for name, func in phases:
-            if name not in session.completed_phases:
+            if name not in completed_phases:
                 func(session, CONFIG)
-                session.completed_phases.append(name)
-                session.save()
+                completed_phases.append(name)
 
         run_report(session, CONFIG)
         console.print(f"[bold green]>> EVALUATION COMPLETE.[/bold green]")
 
-        # --- NEW: INTERACTIVE SAVE PROMPT ---
+        # --- GHOST PROTOCOL ---
         if Confirm.ask("[bold yellow]Do you want to SAVE the mission data locally?[/bold yellow]"):
-            console.print(f"[green]✔ Data preserved in output/{target}[/green]")
+            console.print(f"[green]✔ Data preserved in output/{target} and data/sessions/{target.replace('.', '_')}.db[/green]")
         else:
             console.print(f"[red]! PURGING MISSION DATA...[/red]")
             output_dir = f"output/{target}"
-            session_file = f"data/sessions/{target}.json"
             
             if os.path.exists(output_dir):
                 shutil.rmtree(output_dir)
-            if os.path.exists(session_file):
-                os.remove(session_file)
-                
+            
+            # Fire the SQLite Purge command
+            session.purge()
             console.print(f"[red]✔ TRACE DELETED.[/red]")
 
     except KeyboardInterrupt:
-        session.save()
         sys.exit(1)
     except Exception as e:
         console.print(f"[red]SYSTEM FAILURE: {e}[/red]")
-        session.save()
         sys.exit(1)
 
 if __name__ == "__main__":
